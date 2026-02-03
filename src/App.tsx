@@ -86,19 +86,19 @@ function SelectionPage({ onSelect }: { onSelect: (type: 'coworking' | 'meeting_r
             <ul className="space-y-3 mb-6">
               <li className="flex items-start text-slate-700">
                 <span className="text-purple-600 mr-2">•</span>
-                <span>Tarif horaire : 25€/h</span>
+                <span>5€ par tranche de 10 minutes</span>
               </li>
               <li className="flex items-start text-slate-700">
                 <span className="text-purple-600 mr-2">•</span>
-                <span>Demi-journée (4h) : 80€</span>
+                <span>1h = 30€ | 2h = 60€ | 3h = 90€</span>
               </li>
               <li className="flex items-start text-slate-700">
                 <span className="text-purple-600 mr-2">•</span>
-                <span>Journée complète (8h) : 140€</span>
+                <span>Forfait 4h : 100€</span>
               </li>
               <li className="flex items-start text-slate-700">
                 <span className="text-purple-600 mr-2">•</span>
-                <span>Équipements inclus</span>
+                <span>Maximum journalier : 200€</span>
               </li>
             </ul>
             <div className="inline-flex items-center text-purple-600 font-semibold text-lg group-hover:translate-x-2 transition-transform">
