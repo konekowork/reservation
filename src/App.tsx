@@ -287,8 +287,9 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
 } else {
   // LOGIQUE SALLE DE RÉUNION
   const RATE_PER_10MIN = 5;        // 5€ par tranche de 10 minutes
+  const FORFAIT_3H = 90;           // Forfait 3h : 90€
+  const FORFAIT_3H30 = 95;         // Forfait 3h30 : 95€
   const FORFAIT_4H = 100;          // Forfait 4h : 100€
-  const FORFAIT_4H_MINUTES = 4 * 60; // 240 minutes
   const MAX_PRICE = 200;           // Plafond maximum : 200€
   const MAX_PRICE_THRESHOLD = 7 * 60 + 20; // 7h20 en minutes
 
@@ -301,23 +302,36 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
     calculatedCost = MAX_PRICE;
     detail = 'Tarif maximum journalier';
   }
-  // 2️⃣ Si durée entre 3h20 et 4h → Forfait 4h (100€)
-  else if (roundedMinutes >= 200 && roundedMinutes <= FORFAIT_4H_MINUTES) {
-    // 200 min = 3h20, 240 min = 4h
+  // 2️⃣ Forfait 4h exact (4h00)
+  else if (roundedHours === 4.0) {
     calculatedCost = FORFAIT_4H;
     detail = 'Forfait 4h';
   }
-  // 3️⃣ Si durée > 4h et < 7h20 → Forfait 4h + tranches de 10min
-  else if (roundedMinutes > FORFAIT_4H_MINUTES) {
-    const extraMinutes = roundedMinutes - FORFAIT_4H_MINUTES;
+  // 3️⃣ Forfait 3h30 (de 3h30 à 3h50)
+  else if (roundedHours === 3.5) {
+    calculatedCost = FORFAIT_3H30;
+    detail = 'Forfait 3h30';
+  }
+  // 4️⃣ Forfait 3h (de 3h00 à 3h20)
+  else if (roundedHours === 3.0) {
+    calculatedCost = FORFAIT_3H;
+    detail = 'Forfait 3h';
+  }
+  // 5️⃣ Si durée > 4h et < 7h20 → Forfait 4h + tranches de 10min
+  else if (roundedMinutes > 240) { // Plus de 4h
+    const extraMinutes = roundedMinutes - 240; // 240 min = 4h
     const extraCost = (extraMinutes / 10) * RATE_PER_10MIN;
     calculatedCost = FORFAIT_4H + extraCost;
     
-    const totalHours = Math.floor(roundedMinutes / 60);
-    const remainingMinutes = roundedMinutes % 60;
-    detail = `Forfait 4h (100€) + ${Math.floor(extraMinutes / 60)}h${extraMinutes % 60 > 0 ? (extraMinutes % 60) : ''}min × 5€/10min`;
+    const extraHours = Math.floor(extraMinutes / 60);
+    const extraMins = extraMinutes % 60;
+    if (extraHours > 0) {
+      detail = `Forfait 4h (100€) + ${extraHours}h${extraMins > 0 ? extraMins : ''} × 5€/10min`;
+    } else {
+      detail = `Forfait 4h (100€) + ${extraMins}min × 5€/10min`;
+    }
   }
-  // 4️⃣ Si durée < 3h20 → Tarification à 5€ par tranche de 10min
+  // 6️⃣ Si durée < 3h → Tarification à 5€ par tranche de 10min
   else {
     calculatedCost = (roundedMinutes / 10) * RATE_PER_10MIN;
     
@@ -331,7 +345,6 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
     }
   }
 }
-
       setCost(calculatedCost);
       setPriceDetail(detail);
     } else {
