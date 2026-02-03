@@ -430,10 +430,11 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
     </ul>
   ) : (
     <ul className="space-y-1">
-      <li>• Tarif horaire : 25€/h</li>
-      <li>• Arrondi aux 30 minutes supérieures</li>
-      <li>• Demi-journée (4h) : 80€</li>
-      <li>• Journée complète (8h) : 140€</li>
+      <li>• 5€ par tranche de 10 minutes (arrondi inférieur)</li>
+      <li>• 1h = 30€ | 2h = 60€ | 3h = 90€</li>
+      <li>• Forfait 4h : 100€ (à partir de 3h20)</li>
+      <li>• Au-delà de 4h : +5€ par tranche de 10 min</li>
+      <li>• Maximum journalier : 200€ (dès 7h20)</li>
       <li>• Équipements et services inclus</li>
     </ul>
   );
