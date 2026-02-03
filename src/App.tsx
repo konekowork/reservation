@@ -286,11 +286,11 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
         }
       } else {
         // LOGIQUE SALLE DE RÉUNION
-        const HOURLY_RATE = 25;
+        const HOURLY_RATE = 30;
         const HALF_DAY_HOURS = 4;
-        const HALF_DAY_PRICE = 80;
+        const HALF_DAY_PRICE = 100;
         const FULL_DAY_HOURS = 8;
-        const FULL_DAY_PRICE = 140;
+        const FULL_DAY_PRICE = 200;
 
         // Arrondir aux 30 minutes supérieures pour la salle
         const roundedMinutes = Math.ceil(durationInMinutes / 30) * 30;
