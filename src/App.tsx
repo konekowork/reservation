@@ -284,29 +284,53 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
           calculatedCost = MAX_PRICE;
           detail = 'Tarif maximum journalier';
         }
-      } else {
-        // LOGIQUE SALLE DE RÉUNION
-        const HOURLY_RATE = 30;
-        const HALF_DAY_HOURS = 4;
-        const HALF_DAY_PRICE = 100;
-        const FULL_DAY_HOURS = 8;
-        const FULL_DAY_PRICE = 200;
+} else {
+  // LOGIQUE SALLE DE RÉUNION
+  const RATE_PER_10MIN = 5;        // 5€ par tranche de 10 minutes
+  const FORFAIT_4H = 100;          // Forfait 4h : 100€
+  const FORFAIT_4H_MINUTES = 4 * 60; // 240 minutes
+  const MAX_PRICE = 200;           // Plafond maximum : 200€
+  const MAX_PRICE_THRESHOLD = 7 * 60 + 20; // 7h20 en minutes
 
-        // Arrondir aux 30 minutes supérieures pour la salle
-        const roundedMinutes = Math.ceil(durationInMinutes / 30) * 30;
-        const roundedHours = roundedMinutes / 60;
+  // Arrondir aux 10 minutes inférieures
+  const roundedMinutes = Math.floor(durationInMinutes / 10) * 10;
+  const roundedHours = roundedMinutes / 60;
 
-        if (roundedHours >= FULL_DAY_HOURS) {
-          calculatedCost = FULL_DAY_PRICE;
-          detail = 'Forfait journée complète (8h)';
-        } else if (roundedHours >= HALF_DAY_HOURS) {
-          calculatedCost = HALF_DAY_PRICE;
-          detail = 'Forfait demi-journée (4h)';
-        } else {
-          calculatedCost = roundedHours * HOURLY_RATE;
-          detail = `${roundedHours}h × ${HOURLY_RATE}€/h`;
-        }
-      }
+  // 1️⃣ Si durée >= 7h20 → Prix maximum 200€
+  if (durationInMinutes >= MAX_PRICE_THRESHOLD) {
+    calculatedCost = MAX_PRICE;
+    detail = 'Tarif maximum journalier';
+  }
+  // 2️⃣ Si durée entre 3h20 et 4h → Forfait 4h (100€)
+  else if (roundedMinutes >= 200 && roundedMinutes <= FORFAIT_4H_MINUTES) {
+    // 200 min = 3h20, 240 min = 4h
+    calculatedCost = FORFAIT_4H;
+    detail = 'Forfait 4h';
+  }
+  // 3️⃣ Si durée > 4h et < 7h20 → Forfait 4h + tranches de 10min
+  else if (roundedMinutes > FORFAIT_4H_MINUTES) {
+    const extraMinutes = roundedMinutes - FORFAIT_4H_MINUTES;
+    const extraCost = (extraMinutes / 10) * RATE_PER_10MIN;
+    calculatedCost = FORFAIT_4H + extraCost;
+    
+    const totalHours = Math.floor(roundedMinutes / 60);
+    const remainingMinutes = roundedMinutes % 60;
+    detail = `Forfait 4h (100€) + ${Math.floor(extraMinutes / 60)}h${extraMinutes % 60 > 0 ? (extraMinutes % 60) : ''}min × 5€/10min`;
+  }
+  // 4️⃣ Si durée < 3h20 → Tarification à 5€ par tranche de 10min
+  else {
+    calculatedCost = (roundedMinutes / 10) * RATE_PER_10MIN;
+    
+    const hours = Math.floor(roundedMinutes / 60);
+    const remainingMinutes = roundedMinutes % 60;
+    
+    if (roundedMinutes >= 60) {
+      detail = `${hours}h${remainingMinutes > 0 ? remainingMinutes : ''} × 5€/10min`;
+    } else {
+      detail = `${roundedMinutes} min × 5€/10min`;
+    }
+  }
+}
 
       setCost(calculatedCost);
       setPriceDetail(detail);
