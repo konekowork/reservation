@@ -1,7 +1,125 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, Euro, MapPin, Info } from 'lucide-react';
+import { Calendar, Clock, Euro, MapPin, Info, ArrowLeft, Users, Briefcase } from 'lucide-react';
 
 function App() {
+  // État pour gérer le type de réservation sélectionné
+  const [bookingType, setBookingType] = useState<'coworking' | 'meeting_room' | null>(null);
+
+  // Fonction pour revenir à la sélection
+  const handleBackToSelection = () => {
+    setBookingType(null);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {!bookingType && <SelectionPage onSelect={setBookingType} />}
+      {bookingType === 'coworking' && <BookingForm type="coworking" onBack={handleBackToSelection} />}
+      {bookingType === 'meeting_room' && <BookingForm type="meeting_room" onBack={handleBackToSelection} />}
+    </div>
+  );
+}
+
+// ========================================
+// PAGE DE SÉLECTION (Écran 1)
+// ========================================
+function SelectionPage({ onSelect }: { onSelect: (type: 'coworking' | 'meeting_room') => void }) {
+  return (
+    <div className="py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center mb-4">
+            <MapPin className="w-16 h-16 text-slate-700" />
+          </div>
+          <h1 className="text-5xl font-bold text-slate-900 mb-3">Koneko Work</h1>
+          <p className="text-xl text-slate-600">Choisissez votre type de réservation</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Carte Coworking */}
+          <button
+            onClick={() => onSelect('coworking')}
+            className="bg-white rounded-2xl shadow-xl p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 text-left group"
+          >
+            <div className="flex items-center justify-center w-20 h-20 bg-blue-100 rounded-full mb-6 group-hover:bg-blue-200 transition-colors">
+              <Users className="w-10 h-10 text-blue-600" />
+            </div>
+            <h2 className="text-3xl font-bold text-slate-900 mb-4">Espace Coworking</h2>
+            <p className="text-slate-600 mb-6 text-lg">
+              Réservez une place dans notre espace de travail collaboratif
+            </p>
+            <ul className="space-y-3 mb-6">
+              <li className="flex items-start text-slate-700">
+                <span className="text-blue-600 mr-2">•</span>
+                <span>À partir de 6€</span>
+              </li>
+              <li className="flex items-start text-slate-700">
+                <span className="text-blue-600 mr-2">•</span>
+                <span>Tarification flexible à la minute</span>
+              </li>
+              <li className="flex items-start text-slate-700">
+                <span className="text-blue-600 mr-2">•</span>
+                <span>Offre matinale : 3h pour 14€</span>
+              </li>
+              <li className="flex items-start text-slate-700">
+                <span className="text-blue-600 mr-2">•</span>
+                <span>Forfait journée : 32€ max</span>
+              </li>
+            </ul>
+            <div className="inline-flex items-center text-blue-600 font-semibold text-lg group-hover:translate-x-2 transition-transform">
+              Réserver une place
+              <span className="ml-2">→</span>
+            </div>
+          </button>
+
+          {/* Carte Salle de Réunion */}
+          <button
+            onClick={() => onSelect('meeting_room')}
+            className="bg-white rounded-2xl shadow-xl p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 text-left group"
+          >
+            <div className="flex items-center justify-center w-20 h-20 bg-purple-100 rounded-full mb-6 group-hover:bg-purple-200 transition-colors">
+              <Briefcase className="w-10 h-10 text-purple-600" />
+            </div>
+            <h2 className="text-3xl font-bold text-slate-900 mb-4">Salle de Réunion</h2>
+            <p className="text-slate-600 mb-6 text-lg">
+              Privatisez notre salle pour vos réunions et événements
+            </p>
+            <ul className="space-y-3 mb-6">
+              <li className="flex items-start text-slate-700">
+                <span className="text-purple-600 mr-2">•</span>
+                <span>Tarif horaire : 25€/h</span>
+              </li>
+              <li className="flex items-start text-slate-700">
+                <span className="text-purple-600 mr-2">•</span>
+                <span>Demi-journée (4h) : 80€</span>
+              </li>
+              <li className="flex items-start text-slate-700">
+                <span className="text-purple-600 mr-2">•</span>
+                <span>Journée complète (8h) : 140€</span>
+              </li>
+              <li className="flex items-start text-slate-700">
+                <span className="text-purple-600 mr-2">•</span>
+                <span>Équipements inclus</span>
+              </li>
+            </ul>
+            <div className="inline-flex items-center text-purple-600 font-semibold text-lg group-hover:translate-x-2 transition-transform">
+              Réserver la salle
+              <span className="ml-2">→</span>
+            </div>
+          </button>
+        </div>
+
+        <p className="text-center text-slate-500 text-sm mt-8">
+          Vos données sont sécurisées et ne seront utilisées que pour votre réservation
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ========================================
+// FORMULAIRE DE RÉSERVATION (Écran 2)
+// ========================================
+function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onBack: () => void }) {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -19,7 +137,7 @@ function App() {
 
   useEffect(() => {
     calculateCost();
-  }, [formData.arrivalTime, formData.departureTime, formData.bookingDate]);
+  }, [formData.arrivalTime, formData.departureTime, formData.bookingDate, type]);
 
   const isWithinOpeningHours = (date: string, startTime: string, endTime: string) => {
     if (!date || !startTime || !endTime) return { valid: false, error: '' };
@@ -82,109 +200,112 @@ function App() {
       const durationInHours = durationInMinutes / 60;
       setDuration(durationInHours);
 
-      // ==========================================
-      // LOGIQUE TARIFAIRE COMPLÈTE
-      // ==========================================
-      
       let calculatedCost = 0;
       let detail = '';
 
-      // Constantes tarifaires
-      const MORNING_START = 9 * 60;     // 9h00 en minutes
-      const MORNING_END = 12 * 60 + 30; // 12h30 en minutes
-      const MORNING_CAP = 14;           // Plafond offre matinale : 14€
-      const HOURLY_RATE = 6;            // Tarif horaire : 6€/h
-      const MIN_PRICE = 6;              // Prix minimum : 6€
-      const FORFAIT_4H = 20;            // Forfait 4h : 20€
-      const EXTRA_HOUR_RATE = 3;        // Heures sup. : 3€/h
-      const MAX_PRICE = 32;             // Plafond max : 32€
+      // ==========================================
+      // TARIFICATION SELON LE TYPE
+      // ==========================================
 
-      // 1️⃣ OFFRE MATINALE (9h → 12h30)
-      // Si la réservation est entièrement dans le créneau matinal ET ≤ 3h
-      const isMorningSlot = arrivalInMinutes >= MORNING_START && departureInMinutes <= MORNING_END;
-      const isWithin3Hours = durationInHours <= 3;
+      if (type === 'coworking') {
+        // LOGIQUE COWORKING (votre code actuel)
+        const MORNING_START = 9 * 60;
+        const MORNING_END = 12 * 60 + 30;
+        const MORNING_CAP = 14;
+        const MIN_PRICE = 6;
+        const FORFAIT_4H = 20;
+        const EXTRA_HOUR_RATE = 3;
+        const MAX_PRICE = 32;
 
-      if (isMorningSlot && isWithin3Hours) {
-        // Arrondir aux 10 min inférieures
-        const roundedMinutes = Math.floor(durationInMinutes / 10) * 10;
-        calculatedCost = roundedMinutes / 10; // 1€ par tranche de 10 min
+        const isMorningSlot = arrivalInMinutes >= MORNING_START && departureInMinutes <= MORNING_END;
+        const isWithin3Hours = durationInHours <= 3;
 
-        // Appliquer le minimum 6€
-        if (calculatedCost < MIN_PRICE) {
-          calculatedCost = MIN_PRICE;
-        }
+        if (isMorningSlot && isWithin3Hours) {
+          const roundedMinutes = Math.floor(durationInMinutes / 10) * 10;
+          calculatedCost = roundedMinutes / 10;
 
-        // Plafonner à 14€ pour l'offre matinale
-        if (calculatedCost > MORNING_CAP) {
-          calculatedCost = MORNING_CAP;
-        }
+          if (calculatedCost < MIN_PRICE) {
+            calculatedCost = MIN_PRICE;
+          }
 
-        if (durationInHours === 3) {
-          detail = 'Offre matinale : 3h avant 12h30';
-        } else {
-          detail = `Offre matinale : ${roundedMinutes} min (max 14€)`;
-        }
-      } 
-      // 2️⃣ TARIFICATION STANDARD (< 4h, hors offre matinale)
-else if (durationInHours < 4) {
-  // NOUVELLE RÈGLE : Gestion spécifique pour 3h ≤ durée < 4h
-  if (durationInHours >= 3) {
-    // Arrondir aux 30 min inférieures pour cette tranche
-    const roundedMinutes = Math.floor(durationInMinutes / 30) * 30;
-    const roundedHours = roundedMinutes / 60;
-    
-    if (roundedHours === 3.0) {
-      // De 3h00 à 3h29 → 18€
-      calculatedCost = 18;
-      detail = 'Tarif 3h';
-    } else if (roundedHours === 3.5) {
-      // De 3h30 à 3h59 → 19€
-      calculatedCost = 19;
-      detail = 'Tarif 3h30';
-    }
-  } else {
-    // Tarification normale pour < 3h (arrondi aux 10 min inférieures)
-    const roundedMinutes = Math.floor(durationInMinutes / 10) * 10;
-    calculatedCost = roundedMinutes / 10; // 1€ par tranche de 10 min
+          if (calculatedCost > MORNING_CAP) {
+            calculatedCost = MORNING_CAP;
+          }
 
-    // Appliquer le minimum 6€
-    if (calculatedCost < MIN_PRICE) {
-      calculatedCost = MIN_PRICE;
-      detail = 'Tarif minimum';
-    } else {
-      const hours = Math.floor(roundedMinutes / 60);
-      const remainingMinutes = roundedMinutes % 60;
-      detail = `${hours}h${remainingMinutes > 0 ? remainingMinutes : ''} × 1€/10min`;
-    }
-  }
-}
-      // 3️⃣ FORFAIT 4H EXACT
-      else if (durationInHours === 4) {
-        calculatedCost = FORFAIT_4H;
-        detail = 'Forfait 4h';
-      }
-      // 4️⃣ FORFAIT 4H + HEURES SUPPLÉMENTAIRES (> 4h)
-      else {
-        const extraMinutes = durationInMinutes - (4 * 60);
-        
-        // Arrondir les heures supplémentaires aux 30 min inférieures
-        const roundedExtraMinutes = Math.floor(extraMinutes / 30) * 30;
-        const extraHours = roundedExtraMinutes / 60;
-        const extraCost = extraHours * EXTRA_HOUR_RATE;
-        
-        calculatedCost = FORFAIT_4H + extraCost;
-        
-        if (roundedExtraMinutes > 0) {
-          detail = `Forfait 4h (20€) + ${extraHours.toFixed(1)}h sup. × 3€/h`;
-        } else {
+          if (durationInHours === 3) {
+            detail = 'Offre matinale : 3h avant 12h30';
+          } else {
+            detail = `Offre matinale : ${roundedMinutes} min (max 14€)`;
+          }
+        } else if (durationInHours < 4) {
+          if (durationInHours >= 3) {
+            const roundedMinutes = Math.floor(durationInMinutes / 30) * 30;
+            const roundedHours = roundedMinutes / 60;
+            
+            if (roundedHours === 3.0) {
+              calculatedCost = 18;
+              detail = 'Tarif 3h';
+            } else if (roundedHours === 3.5) {
+              calculatedCost = 19;
+              detail = 'Tarif 3h30';
+            }
+          } else {
+            const roundedMinutes = Math.floor(durationInMinutes / 10) * 10;
+            calculatedCost = roundedMinutes / 10;
+
+            if (calculatedCost < MIN_PRICE) {
+              calculatedCost = MIN_PRICE;
+              detail = 'Tarif minimum';
+            } else {
+              const hours = Math.floor(roundedMinutes / 60);
+              const remainingMinutes = roundedMinutes % 60;
+              detail = `${hours}h${remainingMinutes > 0 ? remainingMinutes : ''} × 1€/10min`;
+            }
+          }
+        } else if (durationInHours === 4) {
+          calculatedCost = FORFAIT_4H;
           detail = 'Forfait 4h';
+        } else {
+          const extraMinutes = durationInMinutes - (4 * 60);
+          const roundedExtraMinutes = Math.floor(extraMinutes / 30) * 30;
+          const extraHours = roundedExtraMinutes / 60;
+          const extraCost = extraHours * EXTRA_HOUR_RATE;
+          
+          calculatedCost = FORFAIT_4H + extraCost;
+          
+          if (roundedExtraMinutes > 0) {
+            detail = `Forfait 4h (20€) + ${extraHours.toFixed(1)}h sup. × 3€/h`;
+          } else {
+            detail = 'Forfait 4h';
+          }
         }
-      }
 
-      // 5️⃣ PLAFOND MAXIMUM (32€)
-      if (calculatedCost > MAX_PRICE) {
-        calculatedCost = MAX_PRICE;
-        detail = 'Tarif maximum journalier';
+        if (calculatedCost > MAX_PRICE) {
+          calculatedCost = MAX_PRICE;
+          detail = 'Tarif maximum journalier';
+        }
+      } else {
+        // LOGIQUE SALLE DE RÉUNION
+        const HOURLY_RATE = 25;
+        const HALF_DAY_HOURS = 4;
+        const HALF_DAY_PRICE = 80;
+        const FULL_DAY_HOURS = 8;
+        const FULL_DAY_PRICE = 140;
+
+        // Arrondir aux 30 minutes supérieures pour la salle
+        const roundedMinutes = Math.ceil(durationInMinutes / 30) * 30;
+        const roundedHours = roundedMinutes / 60;
+
+        if (roundedHours >= FULL_DAY_HOURS) {
+          calculatedCost = FULL_DAY_PRICE;
+          detail = 'Forfait journée complète (8h)';
+        } else if (roundedHours >= HALF_DAY_HOURS) {
+          calculatedCost = HALF_DAY_PRICE;
+          detail = 'Forfait demi-journée (4h)';
+        } else {
+          calculatedCost = roundedHours * HOURLY_RATE;
+          detail = `${roundedHours}h × ${HOURLY_RATE}€/h`;
+        }
       }
 
       setCost(calculatedCost);
@@ -229,6 +350,7 @@ else if (durationInHours < 4) {
             duration: duration,
             cost: cost,
             priceDetail: priceDetail,
+            bookingType: type, // NOUVEAU : type de réservation
           }),
         }
       );
@@ -271,31 +393,62 @@ else if (durationInHours < 4) {
     );
   };
 
+  // Informations tarifaires selon le type
+  const pricingInfo = type === 'coworking' ? (
+    <ul className="space-y-1">
+      <li>• 1€ par tranche de 10 minutes</li>
+      <li>• Prix minimum : 6€</li>
+      <li>• Forfait 3h : 18€ | Forfait 3h30 : 19€</li>
+      <li>• Forfait 4h : 20€</li>
+      <li>• Au-delà de 4h : +3€/h (par tranches de 30 min)</li>
+      <li>• Offre matinale (9h-12h30, max 3h) : plafond 14€</li>
+      <li>• Maximum journalier : 32€</li>
+    </ul>
+  ) : (
+    <ul className="space-y-1">
+      <li>• Tarif horaire : 25€/h</li>
+      <li>• Arrondi aux 30 minutes supérieures</li>
+      <li>• Demi-journée (4h) : 80€</li>
+      <li>• Journée complète (8h) : 140€</li>
+      <li>• Équipements et services inclus</li>
+    </ul>
+  );
+
+  const pageTitle = type === 'coworking' ? 'Réservation Coworking' : 'Réservation Salle de Réunion';
+  const headerColor = type === 'coworking' ? 'text-blue-600' : 'text-purple-600';
+  const buttonColor = type === 'coworking' ? 'bg-slate-900 hover:bg-slate-800' : 'bg-purple-600 hover:bg-purple-700';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
+        {/* Bouton retour */}
+        <button
+          onClick={onBack}
+          className="flex items-center text-slate-600 hover:text-slate-900 mb-6 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          Retour à la sélection
+        </button>
+
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <MapPin className="w-12 h-12 text-slate-700" />
+            {type === 'coworking' ? (
+              <Users className="w-12 h-12 text-blue-600" />
+            ) : (
+              <Briefcase className="w-12 h-12 text-purple-600" />
+            )}
           </div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">Coworking Space</h1>
-          <p className="text-slate-600">Réservez votre espace de travail</p>
+          <h1 className={`text-4xl font-bold mb-2 ${headerColor}`}>{pageTitle}</h1>
+          <p className="text-slate-600">Complétez le formulaire pour réserver</p>
         </div>
 
         {/* Info tarifs */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+        <div className={`${type === 'coworking' ? 'bg-blue-50 border-blue-200' : 'bg-purple-50 border-purple-200'} border rounded-xl p-4 mb-6`}>
           <div className="flex items-start">
-            <Info className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-            <div className="text-sm text-blue-800">
+            <Info className={`w-5 h-5 ${type === 'coworking' ? 'text-blue-600' : 'text-purple-600'} mr-2 mt-0.5 flex-shrink-0`} />
+            <div className={`text-sm ${type === 'coworking' ? 'text-blue-800' : 'text-purple-800'}`}>
               <p className="font-semibold mb-1">Nos tarifs :</p>
-              <ul className="space-y-1">
-                <li>• 1€ par tranche de 10 minutes</li>
-                <li>• Prix minimum : 6€</li>
-                <li>• Forfait 4h : 20€</li>
-                <li>• Au-delà de 4h : +3€/h (par tranches de 30 min)</li>
-                <li>• Offre matinale (9h-12h30, max 3h) : plafond 14€</li>
-                <li>• Maximum journalier : 32€</li>
-              </ul>
+              {pricingInfo}
               <p className="mt-2 font-semibold">Horaires :</p>
               <p>Lun-Ven : 9h-19h | Sam : 10h-18h | Dim : Fermé</p>
             </div>
@@ -442,7 +595,7 @@ else if (durationInHours < 4) {
             <button
               type="submit"
               disabled={!isFormValid() || isSubmitting}
-              className="w-full bg-slate-900 text-white py-4 px-6 rounded-lg font-semibold text-lg hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+              className={`w-full ${buttonColor} text-white py-4 px-6 rounded-lg font-semibold text-lg disabled:bg-slate-300 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98]`}
             >
               {isSubmitting ? 'Réservation en cours...' : 'Réserver'}
             </button>
