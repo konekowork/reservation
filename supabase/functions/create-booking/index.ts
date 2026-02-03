@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,88 +14,14 @@ interface BookingPayload {
   bookingDate: string;
   arrivalTime: string;
   departureTime: string;
+  duration: number;
   cost: number;
-  bookingType: 'coworking' | 'meeting_room';
-  duration?: number;
-  priceDetail?: string;
+  priceDetail: string;
+  bookingType: "coworking" | "meeting_room";
 }
-
-interface BookingRecord {
-  id: string;
-  booking_date: string;
-  arrival_time: string;
-  departure_time: string;
-  booking_type: string;
-  status: string;
-}
-
-const convertTimeToMinutes = (time: string): number => {
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
-};
-
-const checkCoworkingCapacity = (
-  existingBookings: BookingRecord[],
-  newArrivalMins: number,
-  newDepartureMins: number
-): boolean => {
-  const COWORKING_CAPACITY = 20;
-
-  for (const booking of existingBookings) {
-    const bookingArrival = convertTimeToMinutes(booking.arrival_time);
-    const bookingDeparture = convertTimeToMinutes(booking.departure_time);
-
-    const hasOverlap =
-      newArrivalMins < bookingDeparture && newDepartureMins > bookingArrival;
-
-    if (hasOverlap) {
-      let simultaneousCount = 1;
-
-      for (const otherBooking of existingBookings) {
-        if (otherBooking.id === booking.id) continue;
-
-        const otherArrival = convertTimeToMinutes(otherBooking.arrival_time);
-        const otherDeparture = convertTimeToMinutes(otherBooking.departure_time);
-
-        const otherOverlaps =
-          newArrivalMins < otherDeparture && newDepartureMins > otherArrival &&
-          bookingArrival < otherDeparture && bookingDeparture > otherArrival;
-
-        if (otherOverlaps) {
-          simultaneousCount++;
-        }
-      }
-
-      if (simultaneousCount >= COWORKING_CAPACITY) {
-        return false;
-      }
-    }
-  }
-
-  return true;
-};
-
-const checkMeetingRoomConflict = (
-  existingBookings: BookingRecord[],
-  newArrivalMins: number,
-  newDepartureMins: number
-): boolean => {
-  for (const booking of existingBookings) {
-    const bookingArrival = convertTimeToMinutes(booking.arrival_time);
-    const bookingDeparture = convertTimeToMinutes(booking.departure_time);
-
-    const hasOverlap =
-      newArrivalMins < bookingDeparture && newDepartureMins > bookingArrival;
-
-    if (hasOverlap) {
-      return false;
-    }
-  }
-
-  return true;
-};
 
 Deno.serve(async (req: Request) => {
+  // Gérer les requêtes OPTIONS (CORS)
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 200,
@@ -104,7 +31,6 @@ Deno.serve(async (req: Request) => {
 
   try {
     const payload: BookingPayload = await req.json();
-
     const {
       firstName,
       lastName,
@@ -112,22 +38,16 @@ Deno.serve(async (req: Request) => {
       bookingDate,
       arrivalTime,
       departureTime,
+      duration,
       cost,
+      priceDetail,
       bookingType,
     } = payload;
 
-    if (
-      !firstName ||
-      !lastName ||
-      !email ||
-      !bookingDate ||
-      !arrivalTime ||
-      !departureTime ||
-      cost <= 0 ||
-      !bookingType
-    ) {
+    // Validation des données
+    if (!firstName || !lastName || !email || !bookingDate || !arrivalTime || !departureTime || !bookingType) {
       return new Response(
-        JSON.stringify({ error: "Données de réservation invalides" }),
+        JSON.stringify({ error: "Données de réservation incomplètes" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -135,14 +55,15 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const newArrivalMins = convertTimeToMinutes(arrivalTime);
-    const newDepartureMins = convertTimeToMinutes(departureTime);
+    // Validation horaires
+    const [arrivalHours, arrivalMinutes] = arrivalTime.split(":").map(Number);
+    const [departureHours, departureMinutes] = departureTime.split(":").map(Number);
+    const arrivalInMinutes = arrivalHours * 60 + arrivalMinutes;
+    const departureInMinutes = departureHours * 60 + departureMinutes;
 
-    if (newDepartureMins <= newArrivalMins) {
+    if (departureInMinutes <= arrivalInMinutes) {
       return new Response(
-        JSON.stringify({
-          error: "L'heure de départ doit être après l'heure d'arrivée",
-        }),
+        JSON.stringify({ error: "L'heure de départ doit être après l'heure d'arrivée" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -150,86 +71,109 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    // Initialiser Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error("Configuration manquante");
+    // VÉRIFICATION DE CAPACITÉ
+    const { data: overlappingBookings, error: fetchError } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("booking_date", bookingDate)
+      .eq("booking_type", bookingType)
+      .eq("status", "confirmed")
+      .or(`and(arrival_time.lt.${departureTime},departure_time.gt.${arrivalTime})`);
+
+    if (fetchError) {
+      console.error("Error fetching bookings:", fetchError);
+      return new Response(
+        JSON.stringify({ error: "Erreur lors de la vérification de disponibilité" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
-    const queryResponse = await fetch(
-      `${supabaseUrl}/rest/v1/bookings?booking_date=eq.${bookingDate}&booking_type=eq.${bookingType}&status=eq.confirmed`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${supabaseServiceKey}`,
-          apikey: supabaseServiceKey,
-        },
-      }
-    );
-
-    if (!queryResponse.ok) {
-      throw new Error("Erreur lors de la vérification des réservations");
+    // Vérification SALLE DE RÉUNION
+    if (bookingType === "meeting_room" && overlappingBookings && overlappingBookings.length > 0) {
+      return new Response(
+        JSON.stringify({ error: "Salle de réunion déjà réservée sur ce créneau" }),
+        {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
-    const existingBookings: BookingRecord[] = await queryResponse.json();
-
-    let capacityOk = true;
-    let capacityError = "";
-
+    // Vérification COWORKING (max 20 simultanés)
     if (bookingType === "coworking") {
-      capacityOk = checkCoworkingCapacity(
-        existingBookings,
-        newArrivalMins,
-        newDepartureMins
-      );
-      if (!capacityOk) {
-        capacityError =
-          "Capacité coworking atteinte pour ce créneau. Veuillez choisir un autre horaire.";
+      // Créer la timeline des événements
+      const events: { time: number; type: "arrival" | "departure" }[] = [];
+
+      // Ajouter la nouvelle réservation
+      events.push({ time: arrivalInMinutes, type: "arrival" });
+      events.push({ time: departureInMinutes, type: "departure" });
+
+      // Ajouter les réservations existantes
+      if (overlappingBookings) {
+        overlappingBookings.forEach((booking: any) => {
+          const [bArrHour, bArrMin] = booking.arrival_time.split(":").map(Number);
+          const [bDepHour, bDepMin] = booking.departure_time.split(":").map(Number);
+          events.push({ time: bArrHour * 60 + bArrMin, type: "arrival" });
+          events.push({ time: bDepHour * 60 + bDepMin, type: "departure" });
+        });
       }
-    } else if (bookingType === "meeting_room") {
-      capacityOk = checkMeetingRoomConflict(
-        existingBookings,
-        newArrivalMins,
-        newDepartureMins
-      );
-      if (!capacityOk) {
-        capacityError =
-          "La salle de réunion est déjà réservée pour ce créneau. Veuillez choisir un autre horaire.";
+
+      // Trier par temps
+      events.sort((a, b) => a.time - b.time);
+
+      // Calculer l'occupation max
+      let currentOccupancy = 0;
+      let maxOccupancy = 0;
+
+      for (const event of events) {
+        if (event.type === "arrival") {
+          currentOccupancy++;
+          maxOccupancy = Math.max(maxOccupancy, currentOccupancy);
+        } else {
+          currentOccupancy--;
+        }
+      }
+
+      if (maxOccupancy > 20) {
+        return new Response(
+          JSON.stringify({ error: "Capacité maximale atteinte sur ce créneau. Veuillez choisir un autre horaire." }),
+          {
+            status: 409,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
     }
 
-    if (!capacityOk) {
-      return new Response(JSON.stringify({ error: capacityError }), {
-        status: 409,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const insertResponse = await fetch(`${supabaseUrl}/rest/v1/bookings`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${supabaseServiceKey}`,
-        apikey: supabaseServiceKey,
-      },
-      body: JSON.stringify({
+    // CRÉER LA RÉSERVATION
+    const { data: booking, error: insertError } = await supabase
+      .from("bookings")
+      .insert({
         first_name: firstName,
         last_name: lastName,
         email: email,
         booking_date: bookingDate,
         arrival_time: arrivalTime,
         departure_time: departureTime,
+        duration: duration,
         cost: cost,
+        price_detail: priceDetail,
         booking_type: bookingType,
         status: "confirmed",
-      }),
-    });
+      })
+      .select()
+      .single();
 
-    if (!insertResponse.ok) {
-      const error = await insertResponse.text();
-      console.error("Database error:", error);
+    if (insertError) {
+      console.error("Database insert error:", insertError);
       return new Response(
         JSON.stringify({ error: "Erreur lors de la création de la réservation" }),
         {
@@ -239,18 +183,18 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const booking = await insertResponse.json();
-
-    return new Response(JSON.stringify({ success: true, booking }), {
-      status: 201,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    // SUCCÈS
+    return new Response(
+      JSON.stringify({ success: true, booking }),
+      {
+        status: 201,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   } catch (error) {
     console.error("Error:", error);
     return new Response(
-      JSON.stringify({
-        error: "Erreur serveur. Veuillez réessayer plus tard.",
-      }),
+      JSON.stringify({ error: "Erreur interne du serveur" }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
