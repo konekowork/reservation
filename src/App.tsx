@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Calendar, Clock, Euro, MapPin, Info, ArrowLeft, Users, Briefcase } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Calendar, Clock, Euro, MapPin, Info, ArrowLeft, Users, Briefcase, CheckCircle, XCircle, Loader } from 'lucide-react';
 
 function App() {
   // État pour gérer le type de réservation sélectionné
@@ -134,10 +134,65 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [timeError, setTimeError] = useState('');
+  const [availability, setAvailability] = useState<{ status: 'idle' | 'checking' | 'available' | 'unavailable'; message: string; spotsRemaining?: number }>({ status: 'idle', message: '' });
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     calculateCost();
+    checkAvailability();
   }, [formData.arrivalTime, formData.departureTime, formData.bookingDate, type]);
+
+  const checkAvailability = () => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    if (!formData.bookingDate || !formData.arrivalTime || !formData.departureTime) {
+      setAvailability({ status: 'idle', message: '' });
+      return;
+    }
+
+    setAvailability({ status: 'checking', message: 'Vérification...' });
+
+    debounceTimer.current = setTimeout(async () => {
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        const response = await fetch(
+          `${supabaseUrl}/functions/v1/check-availability`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${anonKey}`,
+            },
+            body: JSON.stringify({
+              bookingDate: formData.bookingDate,
+              arrivalTime: formData.arrivalTime,
+              departureTime: formData.departureTime,
+              bookingType: type,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          setAvailability({ status: 'unavailable', message: 'Erreur de vérification' });
+          return;
+        }
+
+        const data = await response.json();
+        setAvailability({
+          status: data.available ? 'available' : 'unavailable',
+          message: data.message,
+          spotsRemaining: data.spotsRemaining,
+        });
+      } catch (error) {
+        console.error('Error checking availability:', error);
+        setAvailability({ status: 'unavailable', message: 'Erreur de vérification' });
+      }
+    }, 500);
+  };
 
   const isWithinOpeningHours = (date: string, startTime: string, endTime: string) => {
     if (!date || !startTime || !endTime) return { valid: false, error: '' };
@@ -434,7 +489,8 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
       formData.arrivalTime &&
       formData.departureTime &&
       cost > 0 &&
-      !timeError
+      !timeError &&
+      availability.status === 'available'
     );
   };
 
@@ -601,6 +657,42 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
             {timeError && (
               <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg text-sm">
                 {timeError}
+              </div>
+            )}
+
+            {formData.bookingDate && formData.arrivalTime && formData.departureTime && (
+              <div className={`border rounded-lg p-4 flex items-start gap-3 ${
+                availability.status === 'available'
+                  ? 'bg-green-50 border-green-200'
+                  : availability.status === 'checking'
+                  ? 'bg-blue-50 border-blue-200'
+                  : 'bg-red-50 border-red-200'
+              }`}>
+                {availability.status === 'checking' && (
+                  <Loader className="w-5 h-5 text-blue-600 animate-spin flex-shrink-0 mt-0.5" />
+                )}
+                {availability.status === 'available' && (
+                  <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                )}
+                {availability.status === 'unavailable' && (
+                  <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                )}
+                <div>
+                  <p className={`font-medium ${
+                    availability.status === 'available'
+                      ? 'text-green-800'
+                      : availability.status === 'checking'
+                      ? 'text-blue-800'
+                      : 'text-red-800'
+                  }`}>
+                    {availability.message}
+                  </p>
+                  {availability.status === 'available' && availability.spotsRemaining !== undefined && type === 'coworking' && (
+                    <p className="text-sm text-green-700 mt-1">
+                      {availability.spotsRemaining} place{availability.spotsRemaining > 1 ? 's' : ''} restante{availability.spotsRemaining > 1 ? 's' : ''}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
