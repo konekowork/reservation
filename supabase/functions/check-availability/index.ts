@@ -78,7 +78,8 @@ Deno.serve(async (req: Request) => {
       .eq("booking_date", bookingDate)
       .eq("booking_type", bookingType)
       .eq("status", "confirmed")
-      .or(`and(arrival_time.lt.${departureTime},departure_time.gt.${arrivalTime})`);
+      .lt("arrival_time", departureTime)
+      .gt("departure_time", arrivalTime);
 
     if (fetchError) {
       console.error("Error fetching bookings:", fetchError);
