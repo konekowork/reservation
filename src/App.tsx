@@ -86,11 +86,11 @@ function SelectionPage({ onSelect }: { onSelect: (type: 'coworking' | 'meeting_r
             <ul className="space-y-3 mb-6">
               <li className="flex items-start text-slate-700">
                 <span className="text-purple-600 mr-2">•</span>
-                <span>5€ par tranche de 10 minutes</span>
+                <span>30€/h (prix minimum : 30€)</span>
               </li>
               <li className="flex items-start text-slate-700">
                 <span className="text-purple-600 mr-2">•</span>
-                <span>1h = 30€ | 2h = 60€ | 3h = 90€</span>
+                <span>2h = 60€ | 3h = 90€</span>
               </li>
               <li className="flex items-start text-slate-700">
                 <span className="text-purple-600 mr-2">•</span>
@@ -211,13 +211,13 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
 
     if (dayOfWeek >= 1 && dayOfWeek <= 5) {
       if (startMinutes < 9 * 60 || endMinutes > 19 * 60) {
-        return { valid: false, error: 'Horaires d\'ouverture lundi-vendredi : 9h00 - 19h00.' };
+        return { valid: false, error: 'Horaires d\\'ouverture lundi-vendredi : 9h00 - 19h00.' };
       }
     }
     
     if (dayOfWeek === 6) {
       if (startMinutes < 10 * 60 || endMinutes > 18 * 60) {
-        return { valid: false, error: 'Horaires d\'ouverture samedi : 10h00 - 18h00.' };
+        return { valid: false, error: 'Horaires d\\'ouverture samedi : 10h00 - 18h00.' };
       }
     }
 
@@ -238,7 +238,7 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
         setCost(0);
         setDuration(0);
         setPriceDetail('');
-        setTimeError('L\'heure de départ doit être après l\'heure d\'arrivée.');
+        setTimeError('L\\'heure de départ doit être après l\\'heure d\\'arrivée.');
         return;
       }
 
@@ -339,74 +339,67 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
           calculatedCost = MAX_PRICE;
           detail = 'Tarif maximum journalier';
         }
-} else {
-  // LOGIQUE SALLE DE RÉUNION
-  const RATE_PER_10MIN = 5;        // 5€ par tranche de 10 minutes
-  const FORFAIT_3H = 90;           // Forfait 3h : 90€ (3h00 à 3h29)
-  const FORFAIT_3H30 = 95;         // Forfait 3h30 : 95€ (3h30 à 3h59)
-  const FORFAIT_4H = 100;          // Forfait 4h : 100€
-  const MAX_PRICE = 200;           // Plafond maximum : 200€
-  const MAX_PRICE_THRESHOLD = 7 * 60 + 20; // 7h20 en minutes
+      } else {
+        // LOGIQUE SALLE DE RÉUNION (MODIFIÉE)
+        const RATE_PER_10MIN = 5;
+        const MIN_PRICE = 30;           // ✅ PRIX MINIMUM 30€
+        const FORFAIT_3H = 90;
+        const FORFAIT_3H30 = 95;
+        const FORFAIT_4H = 100;
+        const MAX_PRICE = 200;
+        const MAX_PRICE_THRESHOLD = 7 * 60 + 20;
 
-  // Arrondir aux 10 minutes inférieures
-  const roundedMinutes = Math.floor(durationInMinutes / 10) * 10;
-  const roundedHours = roundedMinutes / 60;
+        const roundedMinutes = Math.floor(durationInMinutes / 10) * 10;
+        const roundedHours = roundedMinutes / 60;
 
-  // 1️⃣ Si durée >= 7h20 → Prix maximum 200€
-  if (durationInMinutes >= MAX_PRICE_THRESHOLD) {
-    calculatedCost = MAX_PRICE;
-    detail = 'Tarif maximum journalier';
-  }
-  // 2️⃣ Forfait 4h exact (4h00)
-  else if (roundedHours === 4.0) {
-    calculatedCost = FORFAIT_4H;
-    detail = 'Forfait 4h';
-  }
-  // 3️⃣ Gestion des paliers entre 3h et 4h (arrondi 30min)
-  else if (roundedMinutes >= 180 && roundedMinutes < 240) {
-    // De 3h (180min) à juste avant 4h (240min)
-    // Arrondir aux 30 minutes inférieures pour cette tranche
-    const rounded30Min = Math.floor(roundedMinutes / 30) * 30;
-    const roundedHours30 = rounded30Min / 60;
-    
-    if (roundedHours30 === 3.0) {
-      // De 3h00 à 3h29 → 90€
-      calculatedCost = FORFAIT_3H;
-      detail = 'Forfait 3h';
-    } else if (roundedHours30 === 3.5) {
-      // De 3h30 à 3h59 → 95€
-      calculatedCost = FORFAIT_3H30;
-      detail = 'Forfait 3h30';
-    }
-  }
-  // 4️⃣ Si durée > 4h et < 7h20 → Forfait 4h + tranches de 10min
-  else if (roundedMinutes > 240) { // Plus de 4h
-    const extraMinutes = roundedMinutes - 240; // 240 min = 4h
-    const extraCost = (extraMinutes / 10) * RATE_PER_10MIN;
-    calculatedCost = FORFAIT_4H + extraCost;
-    
-    const extraHours = Math.floor(extraMinutes / 60);
-    const extraMins = extraMinutes % 60;
-    if (extraHours > 0) {
-      detail = `Forfait 4h (100€) + ${extraHours}h${extraMins > 0 ? extraMins : ''} × 5€/10min`;
-    } else {
-      detail = `Forfait 4h (100€) + ${extraMins}min × 5€/10min`;
-    }
-  }
-  // 5️⃣ Si durée < 3h → Tarification à 5€ par tranche de 10min
-  else {
-    calculatedCost = (roundedMinutes / 10) * RATE_PER_10MIN;
-    
-    const hours = Math.floor(roundedMinutes / 60);
-    const remainingMinutes = roundedMinutes % 60;
-    
-    if (roundedMinutes >= 60) {
-      detail = `${hours}h${remainingMinutes > 0 ? remainingMinutes : ''} × 5€/10min`;
-    } else {
-      detail = `${roundedMinutes} min × 5€/10min`;
-    }
-  }
-}
+        if (durationInMinutes >= MAX_PRICE_THRESHOLD) {
+          calculatedCost = MAX_PRICE;
+          detail = 'Tarif maximum journalier';
+        } else if (roundedHours === 4.0) {
+          calculatedCost = FORFAIT_4H;
+          detail = 'Forfait 4h';
+        } else if (roundedMinutes >= 180 && roundedMinutes < 240) {
+          const rounded30Min = Math.floor(roundedMinutes / 30) * 30;
+          const roundedHours30 = rounded30Min / 60;
+          
+          if (roundedHours30 === 3.0) {
+            calculatedCost = FORFAIT_3H;
+            detail = 'Forfait 3h';
+          } else if (roundedHours30 === 3.5) {
+            calculatedCost = FORFAIT_3H30;
+            detail = 'Forfait 3h30';
+          }
+        } else if (roundedMinutes > 240) {
+          const extraMinutes = roundedMinutes - 240;
+          const extraCost = (extraMinutes / 10) * RATE_PER_10MIN;
+          calculatedCost = FORFAIT_4H + extraCost;
+          
+          const extraHours = Math.floor(extraMinutes / 60);
+          const extraMins = extraMinutes % 60;
+          if (extraHours > 0) {
+            detail = `Forfait 4h (100€) + ${extraHours}h${extraMins > 0 ? extraMins : ''} × 5€/10min`;
+          } else {
+            detail = `Forfait 4h (100€) + ${extraMins}min × 5€/10min`;
+          }
+        } else {
+          calculatedCost = (roundedMinutes / 10) * RATE_PER_10MIN;
+          
+          // ✅ APPLICATION DU PRIX MINIMUM
+          if (calculatedCost < MIN_PRICE) {
+            calculatedCost = MIN_PRICE;
+            detail = 'Prix minimum (moins d\'1h)';
+          } else {
+            const hours = Math.floor(roundedMinutes / 60);
+            const remainingMinutes = roundedMinutes % 60;
+            
+            if (roundedMinutes >= 60) {
+              detail = `${hours}h${remainingMinutes > 0 ? remainingMinutes : ''} × 5€/10min`;
+            } else {
+              detail = `${roundedMinutes} min × 5€/10min`;
+            }
+          }
+        }
+      }
 
       setCost(calculatedCost);
       setPriceDetail(detail);
@@ -450,7 +443,7 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
             duration: duration,
             cost: cost,
             priceDetail: priceDetail,
-            bookingType: type, // NOUVEAU : type de réservation
+            bookingType: type,
           }),
         }
       );
@@ -507,9 +500,9 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
     </ul>
   ) : (
     <ul className="space-y-1">
-      <li>• 5€ par tranche de 10 minutes (arrondi inférieur)</li>
-      <li>• 1h = 30€ | 2h = 60€ | 3h = 90€</li>
-      <li>• Forfait 4h : 100€ (à partir de 3h20)</li>
+      <li>• 30€/h - Prix minimum : 30€ (même pour moins d'1h)</li>
+      <li>• 2h = 60€ | 3h = 90€ | 3h30 = 95€</li>
+      <li>• Forfait 4h : 100€</li>
       <li>• Au-delà de 4h : +5€ par tranche de 10 min</li>
       <li>• Maximum journalier : 200€ (dès 7h20)</li>
       <li>• Équipements et services inclus</li>
