@@ -68,6 +68,38 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // ✅ VÉRIFICATION DES HORAIRES D'OUVERTURE
+    const dayOfWeek = new Date(bookingDate).getDay();
+    const isWithinOpeningHours = (() => {
+      if (dayOfWeek === 0) return false; // Fermé le dimanche
+      
+      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        // Lun-Ven : 9h-19h
+        return arrivalInMinutes >= 9 * 60 && departureInMinutes <= 19 * 60;
+      }
+      
+      if (dayOfWeek === 6) {
+        // Sam : 10h-18h
+        return arrivalInMinutes >= 10 * 60 && departureInMinutes <= 18 * 60;
+      }
+      
+      return false;
+    })();
+
+    // ✅ SI HORS HORAIRES D'OUVERTURE : PAS DE VÉRIFICATION DE CAPACITÉ
+    if (!isWithinOpeningHours) {
+      return new Response(
+        JSON.stringify({
+          available: true,
+          message: "Hors horaires d'ouverture - Pas de vérification de capacité",
+        } as AvailabilityResponse),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -97,12 +129,29 @@ Deno.serve(async (req: Request) => {
 
     if (bookingType === "meeting_room") {
       const available = !overlappingBookings || overlappingBookings.length === 0;
+      
+      // ✅ AFFICHAGE DES HORAIRES DES CRÉNEAUX NON DISPONIBLES
+      if (!available && overlappingBookings && overlappingBookings.length > 0) {
+        const conflictingSlots = overlappingBookings.map((booking: any) => 
+          `${booking.arrival_time.substring(0, 5)} - ${booking.departure_time.substring(0, 5)}`
+        ).join(", ");
+        
+        return new Response(
+          JSON.stringify({
+            available: false,
+            message: `Salle déjà réservée sur : ${conflictingSlots}`,
+          } as AvailabilityResponse),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+      
       return new Response(
         JSON.stringify({
-          available,
-          message: available
-            ? "Salle disponible"
-            : "Salle de réunion déjà réservée sur ce créneau",
+          available: true,
+          message: "Salle disponible",
         } as AvailabilityResponse),
         {
           status: 200,
