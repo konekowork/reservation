@@ -76,80 +76,105 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // VÉRIFICATION DE CAPACITÉ
-    const { data: overlappingBookings, error: fetchError } = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("booking_date", bookingDate)
-      .eq("booking_type", bookingType)
-      .eq("status", "confirmed")
-      .or(`and(arrival_time.lt.${departureTime},departure_time.gt.${arrivalTime})`);
-
-    if (fetchError) {
-      console.error("Error fetching bookings:", fetchError);
-      return new Response(
-        JSON.stringify({ error: "Erreur lors de la vérification de disponibilité" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Vérification SALLE DE RÉUNION
-    if (bookingType === "meeting_room" && overlappingBookings && overlappingBookings.length > 0) {
-      return new Response(
-        JSON.stringify({ error: "Salle de réunion déjà réservée sur ce créneau" }),
-        {
-          status: 409,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Vérification COWORKING (max 20 simultanés)
-    if (bookingType === "coworking") {
-      // Créer la timeline des événements
-      const events: { time: number; type: "arrival" | "departure" }[] = [];
-
-      // Ajouter la nouvelle réservation
-      events.push({ time: arrivalInMinutes, type: "arrival" });
-      events.push({ time: departureInMinutes, type: "departure" });
-
-      // Ajouter les réservations existantes
-      if (overlappingBookings) {
-        overlappingBookings.forEach((booking: any) => {
-          const [bArrHour, bArrMin] = booking.arrival_time.split(":").map(Number);
-          const [bDepHour, bDepMin] = booking.departure_time.split(":").map(Number);
-          events.push({ time: bArrHour * 60 + bArrMin, type: "arrival" });
-          events.push({ time: bDepHour * 60 + bDepMin, type: "departure" });
-        });
+    // ✅ VÉRIFICATION DES HORAIRES D'OUVERTURE
+    const dayOfWeek = new Date(bookingDate).getDay();
+    const isWithinOpeningHours = (() => {
+      if (dayOfWeek === 0) return false; // Fermé le dimanche
+      
+      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        // Lun-Ven : 9h-19h
+        return arrivalInMinutes >= 9 * 60 && departureInMinutes <= 19 * 60;
       }
-
-      // Trier par temps
-      events.sort((a, b) => a.time - b.time);
-
-      // Calculer l'occupation max
-      let currentOccupancy = 0;
-      let maxOccupancy = 0;
-
-      for (const event of events) {
-        if (event.type === "arrival") {
-          currentOccupancy++;
-          maxOccupancy = Math.max(maxOccupancy, currentOccupancy);
-        } else {
-          currentOccupancy--;
-        }
+      
+      if (dayOfWeek === 6) {
+        // Sam : 10h-18h
+        return arrivalInMinutes >= 10 * 60 && departureInMinutes <= 18 * 60;
       }
+      
+      return false;
+    })();
 
-      if (maxOccupancy > 20) {
+    // ✅ SI DANS LES HORAIRES D'OUVERTURE : VÉRIFICATION DE CAPACITÉ
+    if (isWithinOpeningHours) {
+      const { data: overlappingBookings, error: fetchError } = await supabase
+        .from("bookings")
+        .select("*")
+        .eq("booking_date", bookingDate)
+        .eq("booking_type", bookingType)
+        .eq("status", "confirmed")
+        .or(`and(arrival_time.lt.${departureTime},departure_time.gt.${arrivalTime})`);
+
+      if (fetchError) {
+        console.error("Error fetching bookings:", fetchError);
         return new Response(
-          JSON.stringify({ error: "Capacité maximale atteinte sur ce créneau. Veuillez choisir un autre horaire." }),
+          JSON.stringify({ error: "Erreur lors de la vérification de disponibilité" }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Vérification SALLE DE RÉUNION
+      if (bookingType === "meeting_room" && overlappingBookings && overlappingBookings.length > 0) {
+        // ✅ AFFICHAGE DES HORAIRES DES CRÉNEAUX NON DISPONIBLES
+        const conflictingSlots = overlappingBookings.map((booking: any) => 
+          `${booking.arrival_time.substring(0, 5)} - ${booking.departure_time.substring(0, 5)}`
+        ).join(", ");
+        
+        return new Response(
+          JSON.stringify({ error: `Salle déjà réservée sur : ${conflictingSlots}` }),
           {
             status: 409,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           }
         );
+      }
+
+      // Vérification COWORKING (max 20 simultanés)
+      if (bookingType === "coworking") {
+        // Créer la timeline des événements
+        const events: { time: number; type: "arrival" | "departure" }[] = [];
+
+        // Ajouter la nouvelle réservation
+        events.push({ time: arrivalInMinutes, type: "arrival" });
+        events.push({ time: departureInMinutes, type: "departure" });
+
+        // Ajouter les réservations existantes
+        if (overlappingBookings) {
+          overlappingBookings.forEach((booking: any) => {
+            const [bArrHour, bArrMin] = booking.arrival_time.split(":").map(Number);
+            const [bDepHour, bDepMin] = booking.departure_time.split(":").map(Number);
+            events.push({ time: bArrHour * 60 + bArrMin, type: "arrival" });
+            events.push({ time: bDepHour * 60 + bDepMin, type: "departure" });
+          });
+        }
+
+        // Trier par temps
+        events.sort((a, b) => a.time - b.time);
+
+        // Calculer l'occupation max
+        let currentOccupancy = 0;
+        let maxOccupancy = 0;
+
+        for (const event of events) {
+          if (event.type === "arrival") {
+            currentOccupancy++;
+            maxOccupancy = Math.max(maxOccupancy, currentOccupancy);
+          } else {
+            currentOccupancy--;
+          }
+        }
+
+        if (maxOccupancy > 20) {
+          return new Response(
+            JSON.stringify({ error: "Capacité maximale atteinte sur ce créneau. Veuillez choisir un autre horaire." }),
+            {
+              status: 409,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        }
       }
     }
 
