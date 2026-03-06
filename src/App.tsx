@@ -127,6 +127,11 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
   const [availability, setAvailability] = useState<{ status: 'idle' | 'checking' | 'available' | 'unavailable'; message: string; spotsRemaining?: number; skipCheck?: boolean }>({ status: 'idle', message: '' });
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
+  const pageTitle = type === 'coworking' ? 'RÉSERVATION COWORKING' : 'RÉSERVATION SALLE DE RÉUNION';
+  const titleColor = type === 'coworking' ? 'text-blue-600' : 'text-purple-600';
+  const accentColor = type === 'coworking' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600';
+  const buttonColor = type === 'coworking' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-purple-600 hover:bg-purple-700';
+
   useEffect(() => {
     calculateCost();
     checkAvailability();
@@ -510,245 +515,311 @@ function BookingForm({ type, onBack }: { type: 'coworking' | 'meeting_room'; onB
     );
   };
 
-  const pricingInfo = type === 'coworking' ? (
-    <ul className="space-y-1">
-      <li>• 1€ par tranche de 10 minutes</li>
-      <li>• Prix minimum : 6€</li>
-      <li>• Forfait 3h : 18€ | Forfait 3h30 : 19€</li>
-      <li>• Forfait 4h : 20€</li>
-      <li>• Au-delà de 4h : +3€/h (par tranches de 30 min)</li>
-      <li>• Offre matinale (9h-12h30, max 3h) : plafond 14€</li>
-      <li>• Maximum journalier : 32€</li>
-    </ul>
-  ) : (
-    <ul className="space-y-1">
-      <li>• 30€/h - Prix minimum : 30€ (même pour moins d'1h)</li>
-      <li>• 2h = 60€ | 3h = 90€ | 3h30 = 95€</li>
-      <li>• Forfait 4h : 100€</li>
-      <li>• Au-delà de 4h : +5€ par tranche de 10 min</li>
-      <li>• Maximum journalier : 200€ (dès 7h20)</li>
-      <li>• Équipements et services inclus</li>
-    </ul>
-  );
+  const hourlyRates = type === 'coworking' ? [
+    { title: '1re heure', subtitle: 'Tarif minimum', price: '6€' },
+    { title: 'Chaque 10 minutes supplémentaires', subtitle: 'Soit 1€/10 min', price: '1€' },
+    { title: 'Journée complète', subtitle: '+ de 8h de présence', price: '32€' },
+  ] : [
+    { title: '1ère heure', subtitle: 'Prix minimum', price: '30€' },
+    { title: 'Chaque 10 minutes supplémentaires', subtitle: 'Soit 5€/10 min', price: '5€' },
+    { title: 'Journée complète', subtitle: '+ de 7h20 de présence', price: '200€' },
+  ];
 
-  const pageTitle = type === 'coworking' ? 'Réservation Coworking' : 'Réservation Salle de Réunion';
-  const headerColor = type === 'coworking' ? 'text-blue-600' : 'text-purple-600';
-  const buttonColor = type === 'coworking' ? 'bg-slate-900 hover:bg-slate-800' : 'bg-purple-600 hover:bg-purple-700';
+  const advantageousRates = type === 'coworking' ? [
+    { title: 'Matin productif', subtitle: '3h de présence avant 12h30', price: '14€', oldPrice: '18€' },
+    { title: 'Demi-journée', subtitle: '4h de présence', price: '20€', oldPrice: '24€' },
+    { title: 'Chaque heure supplémentaire', subtitle: 'Au-delà de 4h de présence', price: '3€', oldPrice: '6€' },
+  ] : [
+    { title: 'Forfait 3h', subtitle: 'De 3h00 à 3h29', price: '90€', oldPrice: '120€' },
+    { title: 'Forfait 3h30', subtitle: 'De 3h30 à 3h59', price: '95€', oldPrice: '125€' },
+    { title: 'Forfait 4h', subtitle: 'À partir de 3h20', price: '100€', oldPrice: '150€' },
+  ];
 
   return (
-    <div className="py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-amber-50">
+      <div className="flex flex-col max-w-7xl mx-auto gap-8 px-6 py-10">
         <button
           onClick={onBack}
-          className="flex items-center text-slate-600 hover:text-slate-900 mb-6 transition-colors"
+          className="flex items-center text-slate-700 hover:text-slate-900 transition-colors w-fit"
         >
           <ArrowLeft className="w-5 h-5 mr-2" />
-          Retour à la sélection
+          <span className="text-sm font-medium">Retour à la sélection</span>
         </button>
 
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            {type === 'coworking' ? (
-              <Users className="w-12 h-12 text-blue-600" />
-            ) : (
-              <Briefcase className="w-12 h-12 text-purple-600" />
-            )}
-          </div>
-          <h1 className={`text-4xl font-bold mb-2 ${headerColor}`}>{pageTitle}</h1>
-          <p className="text-slate-600">Complétez le formulaire pour réserver</p>
+        <div className="text-center">
+          <h1 className={`text-4xl font-bold tracking-wider ${titleColor}`}>{pageTitle}</h1>
         </div>
 
-        <div className={`${type === 'coworking' ? 'bg-blue-50 border-blue-200' : 'bg-purple-50 border-purple-200'} border rounded-xl p-4 mb-6`}>
-          <div className="flex items-start">
-            <Info className={`w-5 h-5 ${type === 'coworking' ? 'text-blue-600' : 'text-purple-600'} mr-2 mt-0.5 flex-shrink-0`} />
-            <div className={`text-sm ${type === 'coworking' ? 'text-blue-800' : 'text-purple-800'}`}>
-              <p className="font-semibold mb-1">Nos tarifs :</p>
-              {pricingInfo}
-              <p className="mt-2 font-semibold">Horaires :</p>
-              <p>Lun-Ven : 9h-19h | Sam : 10h-18h | Dim : Fermé</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white shadow-xl rounded-2xl p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-slate-700 mb-2">
-                  Prénom
-                </label>
-                <input
-                  type="text"
-                  id="firstName"
-                  required
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all"
-                  placeholder="Jean"
-                />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="flex flex-col">
+            <div className="bg-white rounded-2xl shadow-lg p-8">
+              <div className="flex flex-col items-center mb-6">
+                <h2 className={`text-base font-bold tracking-wider uppercase ${accentColor} px-4 py-2 rounded-lg`}>
+                  Formulaire de réservation
+                </h2>
               </div>
 
-              <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-slate-700 mb-2">
-                  Nom
-                </label>
-                <input
-                  type="text"
-                  id="lastName"
-                  required
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all"
-                  placeholder="Dupont"
-                />
-              </div>
-            </div>
+              <p className="text-center text-slate-700 text-sm mb-8">
+                Remplissez vos informations personnelles et sélectionnez la date et l'heure de votre venue
+              </p>
 
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
-                Adresse e-mail
-              </label>
-              <input
-                type="email"
-                id="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all"
-                placeholder="jean.dupont@exemple.fr"
-              />
-            </div>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="firstName" className="block text-sm font-medium text-slate-700 mb-2">
+                      Prénom
+                    </label>
+                    <input
+                      type="text"
+                      id="firstName"
+                      required
+                      value={formData.firstName}
+                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                      placeholder="Votre prénom"
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-offset-0 focus:ring-slate-300 focus:border-transparent transition-all text-sm"
+                    />
+                  </div>
 
-            <div>
-              <label htmlFor="bookingDate" className="block text-sm font-medium text-slate-700 mb-2">
-                <Calendar className="w-4 h-4 inline mr-2" />
-                Date de réservation
-              </label>
-              <input
-                type="date"
-                id="bookingDate"
-                required
-                value={formData.bookingDate}
-                onChange={(e) => setFormData({ ...formData, bookingDate: e.target.value })}
-                min={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all"
-              />
-            </div>
+                  <div>
+                    <label htmlFor="lastName" className="block text-sm font-medium text-slate-700 mb-2">
+                      Nom
+                    </label>
+                    <input
+                      type="text"
+                      id="lastName"
+                      required
+                      value={formData.lastName}
+                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                      placeholder="Votre nom"
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-offset-0 focus:ring-slate-300 focus:border-transparent transition-all text-sm"
+                    />
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="arrivalTime" className="block text-sm font-medium text-slate-700 mb-2">
-                  <Clock className="w-4 h-4 inline mr-2" />
-                  Heure d'arrivée
-                </label>
-                <input
-                  type="time"
-                  id="arrivalTime"
-                  required
-                  value={formData.arrivalTime}
-                  onChange={(e) => setFormData({ ...formData, arrivalTime: e.target.value })}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="departureTime" className="block text-sm font-medium text-slate-700 mb-2">
-                  <Clock className="w-4 h-4 inline mr-2" />
-                  Heure de départ
-                </label>
-                <input
-                  type="time"
-                  id="departureTime"
-                  required
-                  value={formData.departureTime}
-                  onChange={(e) => setFormData({ ...formData, departureTime: e.target.value })}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all"
-                />
-              </div>
-            </div>
-
-            {timeError && (
-              <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg text-sm">
-                {timeError}
-              </div>
-            )}
-
-            {formData.bookingDate && formData.arrivalTime && formData.departureTime && !availability.skipCheck && availability.status !== 'idle' && (
-              <div className={`border rounded-lg p-4 flex items-start gap-3 ${
-                availability.status === 'available'
-                  ? 'bg-green-50 border-green-200'
-                  : availability.status === 'checking'
-                  ? 'bg-blue-50 border-blue-200'
-                  : 'bg-red-50 border-red-200'
-              }`}>
-                {availability.status === 'checking' && (
-                  <Loader className="w-5 h-5 text-blue-600 animate-spin flex-shrink-0 mt-0.5" />
-                )}
-                {availability.status === 'available' && (
-                  <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                )}
-                {availability.status === 'unavailable' && (
-                  <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                )}
                 <div>
-                  <p className={`font-medium ${
-                    availability.status === 'available'
-                      ? 'text-green-800'
-                      : availability.status === 'checking'
-                      ? 'text-blue-800'
-                      : 'text-red-800'
-                  }`}>
-                    {availability.message}
-                  </p>
+                  <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
+                    Adresse email
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    required
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="votre.email@exemple.com"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-offset-0 focus:ring-slate-300 focus:border-transparent transition-all text-sm"
+                  />
                 </div>
-              </div>
-            )}
 
-            <div className="bg-slate-50 border-2 border-slate-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center">
-                  <Euro className="w-6 h-6 text-slate-700 mr-2" />
-                  <span className="text-lg font-medium text-slate-700">Coût estimé</span>
+                <div>
+                  <label htmlFor="bookingDate" className="block text-sm font-medium text-slate-700 mb-2">
+                    Date de réservation
+                  </label>
+                  <input
+                    type="date"
+                    id="bookingDate"
+                    required
+                    value={formData.bookingDate}
+                    onChange={(e) => setFormData({ ...formData, bookingDate: e.target.value })}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-offset-0 focus:ring-slate-300 focus:border-transparent transition-all text-sm"
+                  />
                 </div>
-                <div className="text-3xl font-bold text-slate-900">
-                  {cost.toFixed(2)} €
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="arrivalTime" className="block text-sm font-medium text-slate-700 mb-2">
+                      Heure d'arrivée
+                    </label>
+                    <input
+                      type="time"
+                      id="arrivalTime"
+                      required
+                      value={formData.arrivalTime}
+                      onChange={(e) => setFormData({ ...formData, arrivalTime: e.target.value })}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-offset-0 focus:ring-slate-300 focus:border-transparent transition-all text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="departureTime" className="block text-sm font-medium text-slate-700 mb-2">
+                      Heure de départ
+                    </label>
+                    <input
+                      type="time"
+                      id="departureTime"
+                      required
+                      value={formData.departureTime}
+                      onChange={(e) => setFormData({ ...formData, departureTime: e.target.value })}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-offset-0 focus:ring-slate-300 focus:border-transparent transition-all text-sm"
+                    />
+                  </div>
                 </div>
-              </div>
-              {duration > 0 && (
-                <p className="text-sm text-slate-600">
-                  Durée : {duration.toFixed(1)}h
-                </p>
-              )}
-              {priceDetail && (
-                <p className="text-sm text-slate-600 mt-1">
-                  {priceDetail}
-                </p>
-              )}
+
+                {timeError && (
+                  <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg text-sm">
+                    {timeError}
+                  </div>
+                )}
+
+                {formData.bookingDate && formData.arrivalTime && formData.departureTime && !availability.skipCheck && availability.status !== 'idle' && (
+                  <div className={`border rounded-lg p-3 flex items-start gap-3 ${
+                    availability.status === 'available'
+                      ? 'bg-green-50 border-green-200'
+                      : availability.status === 'checking'
+                      ? 'bg-blue-50 border-blue-200'
+                      : 'bg-red-50 border-red-200'
+                  }`}>
+                    {availability.status === 'checking' && (
+                      <Loader className="w-4 h-4 text-blue-600 animate-spin flex-shrink-0 mt-0.5" />
+                    )}
+                    {availability.status === 'available' && (
+                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                    )}
+                    {availability.status === 'unavailable' && (
+                      <XCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <p className={`text-sm font-medium ${
+                        availability.status === 'available'
+                          ? 'text-green-800'
+                          : availability.status === 'checking'
+                          ? 'text-blue-800'
+                          : 'text-red-800'
+                      }`}>
+                        {availability.message}
+                      </p>
+                      {availability.status === 'available' && availability.spotsRemaining !== undefined && type === 'coworking' && (
+                        <p className="text-xs text-green-700 mt-1">
+                          {availability.spotsRemaining} place{availability.spotsRemaining > 1 ? 's' : ''} restante{availability.spotsRemaining > 1 ? 's' : ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-amber-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between">
+                  <span className="text-sm text-slate-700">Coût estimé</span>
+                  <span className="bg-cyan-100 text-slate-700 px-4 py-2 rounded-full font-medium text-lg">
+                    {cost.toFixed(2)} €
+                  </span>
+                </div>
+
+                {message && (
+                  <div
+                    className={`p-3 rounded-lg text-sm ${
+                      message.type === 'success'
+                        ? 'bg-green-50 text-green-800 border border-green-200'
+                        : 'bg-red-50 text-red-800 border border-red-200'
+                    }`}
+                  >
+                    {message.text}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={!isFormValid() || isSubmitting}
+                  className={`w-full ${buttonColor} text-white py-4 rounded-xl font-semibold disabled:bg-slate-300 disabled:cursor-not-allowed transition-all`}
+                >
+                  {isSubmitting ? 'Réservation en cours...' : 'Réserver maintenant et payer sur place'}
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-6">
+            <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <div className="w-full h-56 bg-cover bg-center" style={{backgroundImage: "url('https://images.pexels.com/photos/3807517/pexels-photo-3807517.jpeg?auto=compress&cs=tinysrgb&w=600')"}} />
             </div>
 
-            {message && (
-              <div
-                className={`p-4 rounded-lg ${
-                  message.type === 'success'
-                    ? 'bg-green-50 text-green-800 border border-green-200'
-                    : 'bg-red-50 text-red-800 border border-red-200'
-                }`}
-              >
-                {message.text}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white rounded-2xl shadow-lg p-4">
+                <div className="flex gap-3">
+                  <MapPin className="w-5 h-5 text-blue-600 flex-shrink-0 mt-1" />
+                  <div>
+                    <h3 className="font-bold text-blue-600 text-sm tracking-wide">Adresse</h3>
+                    <p className="text-slate-700 text-sm mt-1">34 Rue d'Aligre, 75012 Paris</p>
+                  </div>
+                </div>
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={!isFormValid() || isSubmitting}
-              className={`w-full ${buttonColor} text-white py-4 px-6 rounded-lg font-semibold text-lg disabled:bg-slate-300 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98]`}
-            >
-              {isSubmitting ? 'Réservation en cours...' : 'Réserver'}
-            </button>
-          </form>
+              <div className="bg-white rounded-2xl shadow-lg p-4">
+                <div className="flex gap-3">
+                  <Clock className="w-5 h-5 text-blue-600 flex-shrink-0 mt-1" />
+                  <div>
+                    <h3 className="font-bold text-blue-600 text-sm tracking-wide">Horaires d'ouverture</h3>
+                    <p className="text-slate-700 text-xs mt-1">Lun - Ven : 9h - 19h</p>
+                    <p className="text-slate-700 text-xs">Sam : 10h - 18h</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <div className="flex flex-col items-center mb-6">
+                <h2 className={`text-base font-bold tracking-wider uppercase ${accentColor} px-4 py-2 rounded-lg`}>
+                  Tarifs
+                </h2>
+              </div>
+
+              <div className="flex gap-6">
+                <div className="flex flex-col gap-4 flex-1">
+                  <div className="text-center">
+                    <h3 className="font-bold text-blue-600 text-sm tracking-wide">Tarifs à l'heure</h3>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    {hourlyRates.map((rate, index) => (
+                      <div key={index} className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <p className="text-slate-700 text-sm">{rate.title}</p>
+                          <p className="text-slate-500 text-xs italic">{rate.subtitle}</p>
+                        </div>
+                        <span className="bg-cyan-100 text-slate-700 px-3 py-1 rounded-full text-sm whitespace-nowrap">
+                          {rate.price}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-4 flex-1">
+                  <div className="text-center">
+                    <h3 className="font-bold text-blue-600 text-sm tracking-wide">Tarifs avantageux</h3>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    {advantageousRates.map((rate, index) => (
+                      <div key={index} className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <p className="text-slate-700 text-sm">{rate.title}</p>
+                          <p className="text-slate-500 text-xs italic">{rate.subtitle}</p>
+                        </div>
+                        <div className="flex items-center gap-1 whitespace-nowrap">
+                          <span className="bg-cyan-100 text-slate-700 px-3 py-1 rounded-full text-sm">
+                            {rate.price}
+                          </span>
+                          <span className="text-slate-400 text-sm line-through">
+                            {rate.oldPrice}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200 mt-6 pt-6">
+                <p className="text-center text-slate-600 text-xs italic">
+                  Seul le temps passé dans l'espace est facturé, les pauses déjeuners en extérieur ou les sorties temporaires ne comptent pas dans la facturation finale.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <p className="text-center text-slate-500 text-sm mt-6">
+        <p className="text-center text-slate-500 text-xs mt-4">
           Vos données sont sécurisées et ne seront utilisées que pour votre réservation
         </p>
       </div>
